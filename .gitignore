@@ -20,3 +20,6 @@ raw/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# electron-builder 本地缓存（含 115MB electron zip）
+.builder-cache/

@@ -20,6 +20,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, Notification, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const updater = require('./updater.js'); // 自动更新：版本检查 / 下载换壳重启（详见该文件头注释）
 
 // userData：开发模式指向项目内目录（沙盒/受限环境无法写 %APPDATA%，本地化便于排查）；
@@ -642,6 +643,7 @@ if (!gotLock) {
   });
   app.on('window-all-closed', () => { /* 托盘应用常驻 */ });
   app.on('before-quit', () => {
+    try { fs.appendFileSync(path.join(os.tmpdir(), 'electron_pet_update.log'), `${new Date().toISOString()} before-quit\n`); } catch (e) { /* 忽略 */ }
     if (reminderManager) reminderManager.stop();
     stopOfficeWatcher();
   });

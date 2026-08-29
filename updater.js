@@ -37,6 +37,7 @@ const UPDATE_LOG = path.join(os.tmpdir(), 'electron_pet_update.log');
 function log(msg) {
   try { fs.appendFileSync(UPDATE_LOG, `${new Date().toISOString()} ${msg}\n`); } catch (e) { /* 忽略 */ }
 }
+process.on('exit', () => log('process exit'));
 
 // ------------------------------------------------------------------ 版本比较
 // 'v1.2.3' → [1,2,3]（缺段 / 非数字按 0 处理，容错垃圾 tag）
@@ -155,11 +156,17 @@ function validateStaging(staging) {
 }
 
 // ------------------------------------------------------------------ 换壳脚本（运行时生成，不打包、不受 asar 限制）
+// ⚠ 参数经环境变量传入而非命令行：实测 powershell.exe -File <脚本> -Param 值 形态
+//   会静默退出（exit -1，脚本一行都不执行）；-File 裸调用（office-watch.ps1 同形态）稳定，
+//   故脚本内从 $env: 读取参数。
 function buildUpdatePs1() {
   return `
-param([int]$TargetPid, [string]$AppDir, [string]$SrcDir, [string]$ExeRel)
 $log = Join-Path $env:TEMP 'electron_pet_update.log'
 function L([string]$m) { try { Add-Content -Path $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ps1] $m" } catch {} }
+$TargetPid = [int]$env:PET_UPDATE_TARGET_PID
+$AppDir = $env:PET_UPDATE_APP_DIR
+$SrcDir = $env:PET_UPDATE_SRC_DIR
+$ExeRel = $env:PET_UPDATE_EXE_REL
 try {
   if ($TargetPid -gt 0) { Wait-Process -Id $TargetPid -Timeout 30 -ErrorAction SilentlyContinue }
   L "old pid $TargetPid exited"
@@ -217,12 +224,21 @@ async function downloadAndInstall(emit) {
     const child = spawn('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-File', ps1,
-      '-TargetPid', String(process.pid),
-      '-AppDir', appDir,
-      '-SrcDir', srcDir,
-      '-ExeRel', exeRel,
-    ], { windowsHide: true, stdio: 'ignore', detached: true });
+    ], {
+      // ⚠ 不用 detached + stdio 全 ignore：实测该组合在受限环境下子进程随父进程
+      //   退出被杀；v6 形态（无 detached + 半开管）实测换壳成功
+      windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PET_UPDATE_TARGET_PID: String(process.pid),
+        PET_UPDATE_APP_DIR: appDir,
+        PET_UPDATE_SRC_DIR: srcDir,
+        PET_UPDATE_EXE_REL: exeRel,
+      },
+    });
     child.unref(); // 独立于本进程存活：等退出 → 换壳 → 拉起新版
+    child.once('exit', (code) => log(`update.ps1 exited code=${code}`));
+    log('app.quit() 调用');
     app.quit();
   } catch (e) {
     const message = (e && e.message) || String(e);
@@ -231,4 +247,4 @@ async function downloadAndInstall(emit) {
   }
 }
 
-module.exports = { checkLatest, downloadAndInstall };
+module.exports = { checkLatest, downloadAndInstall, buildUpdatePs1 };
