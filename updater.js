@@ -211,15 +211,16 @@ try {
 `.trim();
 }
 
-// 直接 spawn 换壳脚本：普通子进程 + stdio ignore + unref。
-// 实测（%TEMP%\electron_pet_update.log 2026-08-29 22:24 一轮）子进程在应用退出后
-// 仍继续执行并写日志——Electron 主进程退出不会连带杀掉 spawn 的子进程；此前换壳
-// 中断的真实根因是暂存目录与应用目录跨盘，Move-Item 退化为 122MB 慢速复制。
+// spawn 换壳脚本：无 detached + 半开管（stdio ['ignore','pipe','pipe']）+ unref。
+// ⚠ stdio 不能用 'ignore'：v1.0.2 发布前实测（electron_pet_update.log 2026-08-29 23:37
+//   一轮）Electron 主进程退出后 powershell 子进程随即被杀、换壳中断；而半开管形态
+//   （同日志 22:24 一轮）子进程在应用退出后仍继续执行并完成目录替换。机制与
+//   Windows 进程/句柄继承相关，勿凭 node 环境测试结论改回（node 父进程两种形态都存活）。
 // cwd 设为 tmpdir：子进程工作目录不能落在即将被改名的应用目录里。
 function spawnUpdateScript(ps1) {
   const child = spawn('powershell.exe',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1],
-    { windowsHide: true, stdio: 'ignore', cwd: os.tmpdir() });
+    { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], cwd: os.tmpdir() });
   child.unref();
   return child;
 }
