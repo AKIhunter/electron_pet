@@ -464,7 +464,7 @@ function registerIpc() {
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('update:check', () => updater.checkLatest());
   ipcMain.on('update:install', () => {
-    // 安装进度状态机（downloading % / extracting / restarting / error）推送到控制面板
+    // 安装进度状态机（downloading % / installing / error）推送到控制面板
     updater.downloadAndInstall((state) => {
       if (reminderWindow && !reminderWindow.isDestroyed()) {
         reminderWindow.webContents.send('update:progress', state);
@@ -639,7 +639,6 @@ if (!gotLock) {
     startFleeMonitor();     // 快扫 → 跑开监测
     startOfficeWatcher();   // 办公前台 → 审阅氛围
     startBoundsWatchdog();  // 越界看门狗：窗口移出所有显示器可见区 3s 内拉回（问题 1）
-    updater.cleanupAfterUpdate(); // 更新换壳中断兜底：清 .old / .pet_update_* 残留（fire-and-forget）
     setTimeout(notifyPendingCrash, 1500); // 启动 1.5s 后：存在未下载崩溃日志 → 宠物气泡提示（问题 8）
   });
   app.on('window-all-closed', () => { /* 托盘应用常驻 */ });

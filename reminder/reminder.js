@@ -146,10 +146,8 @@ CD.onUpdateProgress((s) => {
   if (!s || !s.stage) return;
   if (s.stage === 'downloading') {
     statusEl.textContent = `下载中 ${s.percent || 0}%`;
-  } else if (s.stage === 'extracting') {
-    statusEl.textContent = '解压中…';
-  } else if (s.stage === 'restarting') {
-    statusEl.textContent = '正在退出并自动更新…';
+  } else if (s.stage === 'installing') {
+    statusEl.textContent = '正在安装更新…';
   } else if (s.stage === 'error') {
     statusEl.textContent = s.message || '更新失败';
     doBtn.disabled = false;

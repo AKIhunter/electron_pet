@@ -91,23 +91,23 @@ $env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-bu
 npm run build
 ```
 
-产物：`dist/electron_pet-v<版本>-win-x64.zip`——**解压即用的便携目录**（含 `electron_pet.exe`，免安装）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
+产物：`dist/electron_pet-v<版本>-win-x64.exe`——**NSIS 一键安装包**（双击即装到 `%LOCALAPPDATA%\Programs\electron_pet`，自动建桌面/开始菜单快捷方式；更新时下载新安装包覆盖安装，安装目录记录在注册表）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
 
 ## 自动更新
 
 控制面板底部版本栏点 **⟳ 检查更新** → 主进程请求 GitHub `releases/latest`（`api.github.com` 直连）→ 与本地版本逐段比较：
 
 - **无新版**：显示「已是最新（vX.Y.Z）」。
-- **有新版**：出现 **⬇ 下载并重启** → curl 下载 zip 资产（**代理优先**：先走 `config.update.proxyUrl`（默认本机 Clash 7890），代理不可用秒退自动改直连；**慢速熔断**：连接被限速成 <10KB/s 假连接时 30s 中止换链路，避免挂满 10 分钟才回退；500ms 轮询临时文件大小算百分比）→ `Expand-Archive` 解压并校验包内含 `electron_pet.exe` → 生成换壳脚本 `update.ps1`（等旧进程退出 ≤30s → 旧目录挪 `.old` → 新目录就位 → 拉起新版 → 延时清理 `.old`）→ 应用自动退出重启为新版。
+- **有新版**：出现 **⬇ 下载并重启** → curl 下载 exe 安装包（**代理优先**：先走 `config.update.proxyUrl`（默认本机 Clash 7890），代理不可用秒退自动改直连；**慢速熔断**：连接被限速成 <10KB/s 假连接时 30s 中止换链路；500ms 轮询临时文件大小算百分比）→ 静默运行安装器（`/S` + detached 脱离应用进程树）→ 应用退出，NSIS 安装器自动覆盖安装到原目录并完成升级。
 
-限制：仅便携 zip 形态支持（NSIS/Program Files 安装提示手动下载）；开发模式（npm start）只能检查不能安装。排障日志：`%TEMP%\electron_pet_update.log`。
+限制：仅 NSIS 安装包形态支持；开发模式（npm start）只能检查不能安装。排障日志：`%TEMP%\electron_pet_update.log`。
 
 ## 项目结构
 
 ```
 stitch_pet_electron/
 ├── main.js               # 主进程：透明置顶窗口 / 托盘 / IPC / 跑开监视与位移 / 办公前台监视 / 提醒管理器 / 崩溃日志
-├── updater.js            # 自动更新（GitHub Release 检查 / 下载换壳重启）
+├── updater.js            # 自动更新（GitHub Release 检查 / 下载 exe 安装包覆盖安装）
 ├── flee.js               # 跑开位移数学 + SwipeAccumulator 快扫累计器（纯函数，可离线单测）
 ├── office-watch.ps1      # 前台窗口监视子进程（PowerShell，前台进程变更时输出一行）
 ├── preload.js            # contextBridge 安全桥
