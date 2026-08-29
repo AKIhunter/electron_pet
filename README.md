@@ -91,14 +91,14 @@ $env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-bu
 npm run build
 ```
 
-产物：`dist/electron_pet-v1.0.0-win-x64.zip`——**解压即用的便携目录**（含 `electron_pet.exe`，免安装）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
+产物：`dist/electron_pet-v<版本>-win-x64.zip`——**解压即用的便携目录**（含 `electron_pet.exe`，免安装）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
 
 ## 自动更新
 
 控制面板底部版本栏点 **⟳ 检查更新** → 主进程请求 GitHub `releases/latest`（`api.github.com` 直连）→ 与本地版本逐段比较：
 
 - **无新版**：显示「已是最新（vX.Y.Z）」。
-- **有新版**：出现 **⬇ 下载并重启** → curl 下载 zip 资产（**先直连，失败/超时自动改走 `config.update.proxyUrl` 代理**；500ms 轮询临时文件大小算百分比）→ `Expand-Archive` 解压并校验包内含 `electron_pet.exe` → 生成换壳脚本 `update.ps1`（等旧进程退出 ≤30s → 旧目录挪 `.old` → 新目录就位 → 拉起新版 → 延时清理 `.old`）→ 应用自动退出重启为新版。
+- **有新版**：出现 **⬇ 下载并重启** → curl 下载 zip 资产（**代理优先**：先走 `config.update.proxyUrl`（默认本机 Clash 7890），代理不可用秒退自动改直连；**慢速熔断**：连接被限速成 <10KB/s 假连接时 30s 中止换链路，避免挂满 10 分钟才回退；500ms 轮询临时文件大小算百分比）→ `Expand-Archive` 解压并校验包内含 `electron_pet.exe` → 生成换壳脚本 `update.ps1`（等旧进程退出 ≤30s → 旧目录挪 `.old` → 新目录就位 → 拉起新版 → 延时清理 `.old`）→ 应用自动退出重启为新版。
 
 限制：仅便携 zip 形态支持（NSIS/Program Files 安装提示手动下载）；开发模式（npm start）只能检查不能安装。排障日志：`%TEMP%\electron_pet_update.log`。
 
@@ -163,5 +163,5 @@ python tools/preprocess.py
 - 崩溃日志：`uncaughtException` / `unhandledRejection` / 各窗口 `render-process-gone` 三挂接 → 同步写 `userdata/crash/crash-YYYYMMDD.log`（JSONL）+ `pending.json` 未下载标记；主进程崩溃**记录不退出**（桌宠尽力自愈）；下次启动 1.5s 后 pending>0 → 宠物气泡提示 12s；控制面板 `crash:status` 查询红点、`crash:download` 合并全部日志弹另存为（默认名 `史迪奇崩溃日志-YYYYMMDD.txt`），写入成功仅删 pending 标记（日志文件保留，可重复下载）。
 - 办公审阅：Electron 无跨应用前台窗口 API，由主进程 spawn 常驻 `office-watch.ps1`（user32 `GetForegroundWindow` → `GetWindowThreadProcessId` → `Get-Process`，600ms 轮询，前台进程变更时输出一行小写进程名），Node readline 逐行匹配 `config.office.processNames`（excel/winword/powerpnt/onenote/outlook/wps/et/wpp，可配置）；前台为宠物自身（electron）时忽略不改状态。渲染层 `settle()` 统一裁决回落：办公活跃 → 审阅（**完整播完后冷却 `COOLDOWN.review`=20s，冷却期回待机、由恢复定时器到期自动重播；被拖拽/跑开/挥手打断不消耗冷却，打断结束立即回审阅**），否则待机。子进程失败静默降级，`will-quit` 时清理。
 - 注意：CDP 合成事件不移动真实 OS 光标，跑开监视的主进程路径无法自动化驱动——位移数学由 `tools/test_flee.js` 离线单测覆盖，渲染层响应由 `tools/assert_drag.js` 覆盖，端到端用 `tools/verify_interactions.js`（临时把 notepad 加入办公清单实测氛围进出）。
-- userData 指向项目内 `userdata/`（受限/沙盒环境无法写 %APPDATA%）。
+- userData：开发模式（npm start）指向项目内 `userdata/`（受限/沙盒环境无法写 %APPDATA%）；打包版用系统默认 `%APPDATA%\<应用名>`。
 - 提醒：`setInterval` 每秒检查，直达 `Notification` + IPC 气泡（气泡位于窗口内部顶部，不会被透明窗口裁剪）。

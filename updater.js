@@ -2,15 +2,15 @@
 /* ============================================================================
  * 自动更新器（updater.js，主进程模块）
  * ============================================================================
- * 流程：GitHub API 查最新 Release → 与本地版本比较 → 下载 zip（直连失败自动改走
- *       代理）→ 解压校验 → 生成 update.ps1 换壳（等旧进程退出 → 目录整体替换 →
- *       拉起新版 → 清理旧目录）→ app.quit()。
+ * 流程：GitHub API 查最新 Release → 与本地版本比较 → 下载 zip（代理优先，
+ *       不可用自动改直连，慢速连接 30s 熔断）→ 解压校验 → 生成 update.ps1
+ *       换壳（等旧进程退出 → 目录整体替换 → 拉起新版 → 清理旧目录）→ app.quit()。
  * 状态机（经 main.js 推送到控制面板）：
  *   downloading{percent} → extracting → restarting / error{message}
  *
  * ★ 想改参数？config.json update 段：
  *   repoOwner / repoName   GitHub 仓库（默认 AKIhunter / electron_pet）
- *   proxyUrl               直连下载失败后的代理地址（默认 http://127.0.0.1:7890）
+ *   proxyUrl               下载优先走的代理（默认 http://127.0.0.1:7890，不可用自动直连）
  *   exeName                便携版主程序名（默认 electron_pet.exe，解压校验用）
  * ⚠ 仅支持便携 zip 形态（Release 附件 = electron-builder zip 产物）；
  *   开发模式（npm start）只允许「检查更新」，「安装」返回提示。
@@ -81,17 +81,21 @@ async function checkLatest() {
 
 // ------------------------------------------------------------------ 下载
 // curl.exe 下载（Windows 10+ 自带；windowsHide 不闪黑窗）
+// --speed-limit/--speed-time：慢速熔断——直连被限速成 ~10KB/s 假连接时 30s 内中止，
+// 否则要挂满 --max-time 600 才回退（实测病灶）。
 function curl(url, dest, proxy) {
   return new Promise((resolve, reject) => {
     const args = (proxy ? ['-x', proxy] : [])
-      .concat(['-L', '--fail', '--connect-timeout', '15', '--max-time', '600', '-o', dest, url]);
+      .concat(['-L', '--fail', '--connect-timeout', '15',
+        '--speed-limit', '10240', '--speed-time', '30',
+        '--max-time', '600', '-o', dest, url]);
     const p = spawn('curl.exe', args, { windowsHide: true, stdio: 'ignore' });
     p.on('error', (e) => reject(new Error(`curl 启动失败：${e.message}`)));
     p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`curl 退出码 ${code}`))));
   });
 }
 
-// 策略链：先直连（其他机器可用）→ 失败/超时改走 config 代理（本机 GitHub 直连被墙）
+// 策略链：先代理（本机 Clash 常驻，代理不可达时连接秒拒）→ 失败改直连（其他机器可用）
 // 进度：500ms 轮询临时文件大小 ÷ Release API 给的 size
 async function downloadZip(url, size, emit) {
   const dest = path.join(os.tmpdir(), `electron_pet_update_${Date.now()}.zip`);
@@ -107,12 +111,12 @@ async function downloadZip(url, size, emit) {
     } catch (e) { /* 文件尚未创建 */ }
   }, 500);
   try {
-    try { await tryOnce(null); log(`下载完成（直连）${dest}`); }
+    try { await tryOnce(PROXY); log(`下载完成（代理）${dest}`); }
     catch (e1) {
-      log(`直连失败（${e1.message}），改走代理 ${PROXY}`);
+      log(`代理失败（${e1.message}），改走直连`);
       emit({ stage: 'downloading', percent: 0 });
-      await tryOnce(PROXY);
-      log(`下载完成（代理）${dest}`);
+      await tryOnce(null);
+      log(`下载完成（直连）${dest}`);
     }
   } finally {
     clearInterval(timer);
