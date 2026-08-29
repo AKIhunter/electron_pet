@@ -44,6 +44,7 @@ const CF = {
   interaction: config.interaction || {},
   cooldowns: config.cooldowns || {},
   office: config.office || {},
+  tray: config.tray || {},  // 托盘 tooltip（原 CF 漏掉导致 config.tray.tooltip 为死配置）
 };
 
 // ------------------------------------------------------------------ assets meta
@@ -54,16 +55,38 @@ try {
   console.error('assets/meta.json 读取失败', e);
 }
 
+// ------------------------------------------------------------------ 用户设置（开机自启动等，持久化 userdata/settings.json）
+const SETTINGS_FILE = () => path.join(app.getPath('userData'), 'settings.json');
+function readSettings() {
+  try { return JSON.parse(fs.readFileSync(SETTINGS_FILE(), 'utf-8')); }
+  catch (e) { return {}; }
+}
+function writeSettings(s) {
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE()), { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE(), JSON.stringify(s, null, 2), 'utf-8');
+  } catch (e) { console.error('设置保存失败', e); }
+}
+// 开机自启动：无记录时默认开启；仅打包版写注册表（开发模式 process.execPath 指向 electron.exe，勿污染）
+function getOpenAtLogin() {
+  const s = readSettings();
+  return typeof s.openAtLogin === 'boolean' ? s.openAtLogin : true;
+}
+function setOpenAtLogin(enabled) {
+  const flag = !!enabled;
+  const s = readSettings();
+  s.openAtLogin = flag;
+  writeSettings(s);
+  if (app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: flag, path: process.execPath });
+  }
+  return flag;
+}
+
 let petWindow = null;
 let reminderWindow = null;
 let tray = null;
 let reminderManager = null;
-
-// 拖拽调试日志（直写文件，不受 stdout 重定向句柄失效影响）
-const TRACE_FILE = path.join(__dirname, 'verify', 'drag_trace.log');
-function trace(msg) {
-  try { fs.appendFileSync(TRACE_FILE, `${Date.now()} ${msg}\n`); } catch (e) { /* 忽略 */ }
-}
 
 // ------------------------------------------------------------------ 崩溃日志（问题 8）
 // 三类来源：主进程未捕获异常/未处理 Promise 拒绝、各窗口渲染进程崩溃（render-process-gone）。
@@ -86,7 +109,6 @@ function writeCrash(scope, info) {
     const p = readPending();
     fs.writeFileSync(PENDING_FILE, JSON.stringify({ count: (p.count || 0) + 1, since: p.since || Date.now(), lastAt: Date.now() }, null, 2));
     console.error(`[crash] ${scope}: ${err.message}`);
-    trace(`crash ${scope}: ${err.message}`);
   } catch (e) { console.error('崩溃日志写入失败', e); }
 }
 
@@ -105,7 +127,7 @@ function attachRenderGone(win, scope) {
 function notifyPendingCrash() {
   try {
     if (readPending().count > 0 && petWindow && !petWindow.isDestroyed()) {
-      petWindow.webContents.send('remind', { text: '将日志信息下载下来，提供给代旭秋', ms: 12000 });
+      petWindow.webContents.send('remind', { text: '将日志信息下载下来，提供给秋秋', ms: 12000 });
     }
   } catch (e) { /* 忽略 */ }
 }
@@ -257,18 +279,21 @@ function buildTrayIcon() {
   return nativeImage.createEmpty();
 }
 
-function createTray() {
-  tray = new Tray(buildTrayIcon()); // 图标取待机第 1 帧（见上方 buildTrayIcon）
-  // ★ 托盘菜单项（右键托盘弹出）：增删条目改这里，label + click 成对
-  const menu = Menu.buildFromTemplate([
+// 应用菜单（托盘右键与宠物右键共用，避免两处文案漂移）
+function buildAppMenu() {
+  return Menu.buildFromTemplate([
     { label: '培养手册', click: () => openManualWindow() },
     { label: '控制面板', click: () => openReminderWindow() },
-    { label: '显示 / 隐藏宠物', click: () => togglePet() },
+    { label: petWindow && petWindow.isVisible() ? '隐藏宠物' : '显示宠物', click: () => togglePet() },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]);
+}
+
+function createTray() {
+  tray = new Tray(buildTrayIcon()); // 图标取待机第 1 帧（见上方 buildTrayIcon）
   tray.setToolTip(CF.tray?.tooltip || '史迪奇桌面宠物');
-  tray.setContextMenu(menu);
+  tray.setContextMenu(buildAppMenu());
   tray.on('double-click', () => togglePet());
 }
 
@@ -306,7 +331,7 @@ function openReminderWindow() {
   }
   reminderWindow = new BrowserWindow({
     width: 360,  // ★ 控制面板宽 px
-    height: 575, // ★ 控制面板高 px（工具栏 + 底部版本栏各一行）
+    height: 640, // ★ 控制面板高 px（提醒 / 通用 / 工具与更新 三个分区）
     title: '控制面板',
     resizable: false,
     minimizable: false,
@@ -381,8 +406,6 @@ function registerIpc() {
     const [wx, wy] = petWindow.getPosition();
     const offX = cursor.x - wx;
     const offY = cursor.y - wy;
-    console.log(`[drag] start cursor=(${cursor.x},${cursor.y}) win=(${wx},${wy}) offset=(${offX},${offY})`);
-    trace(`start cursor=(${cursor.x},${cursor.y}) win=(${wx},${wy}) offset=(${offX},${offY})`);
     showDragShield(); // 预创建的盾牌，仅显示
     dragFollower = setInterval(() => {
       if (!petWindow || petWindow.isDestroyed()) {
@@ -403,7 +426,6 @@ function registerIpc() {
 
   // 来源可能是宠物窗口自身的 pointerup，也可能是事件盾转发的窗口外 mouseup
   ipcMain.on('pet:dragEnd', () => {
-    trace('end');
     if (dragFollower) { clearInterval(dragFollower); dragFollower = null; }
     hideDragShield();
     if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('drag-end');
@@ -411,14 +433,7 @@ function registerIpc() {
 
   // 右键事件（由 renderer 同时触发审阅动画）-> 弹右键菜单
   ipcMain.on('pet:context-menu', () => {
-    const menu = Menu.buildFromTemplate([
-      { label: '培养手册', click: () => openManualWindow() },
-      { label: '控制面板', click: () => openReminderWindow() },
-      { label: '显示 / 隐藏宠物', click: () => togglePet() },
-      { type: 'separator' },
-      { label: '退出', click: () => app.quit() },
-    ]);
-    menu.popup({ window: petWindow });
+    buildAppMenu().popup({ window: petWindow });
   });
 
   // 培养手册（控制面板工具栏按钮触发）
@@ -460,6 +475,10 @@ function registerIpc() {
   ipcMain.handle('reminder:add', (_e, payload) => reminderManager.add(payload || {}));
   ipcMain.handle('reminder:remove', (_e, id) => reminderManager.remove(id));
 
+  // ---- 开机自启动（默认开启，settings.json 持久化）----
+  ipcMain.handle('settings:getOpenAtLogin', () => getOpenAtLogin());
+  ipcMain.handle('settings:setOpenAtLogin', (_e, enabled) => setOpenAtLogin(enabled));
+
   // ---- 版本与自动更新（任务 4；实现见 updater.js）----
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('update:check', () => updater.checkLatest());
@@ -498,8 +517,6 @@ function startFlee(cursor, swipe) {
     petRect, cursor, swipe, workArea, CF.interaction.fleeDistancePx || 400
   );
   const left = target.x < wx;
-  console.log(`[flee] cursor=(${cursor.x},${cursor.y}) win=(${wx},${wy}) -> (${target.x},${target.y}) left=${left}`);
-  trace(`flee win=(${wx},${wy}) -> (${target.x},${target.y}) left=${left}`);
   petWindow.webContents.send('pet:flee', { left });
   fleeing = true;
   const t0 = Date.now();
@@ -563,8 +580,6 @@ function startBoundsWatchdog() {
       const area = screen.getPrimaryDisplay().workArea;
       const winSize = CF.frameCanvas * CF.displayScale;
       petWindow.setPosition(area.x + area.width - winSize - 60, area.y + area.height - winSize - 40);
-      trace('watchdog-restored');
-      console.log('[watchdog] 宠物窗口越界，已拉回主屏右下角');
     }
   }, 3000);
 }
@@ -595,13 +610,12 @@ function startOfficeWatcher() {
     officeWatcher = spawn('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-File', OFFICE_PS1,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    ], { stdio: ['ignore', 'pipe', 'ignore'] });
   } catch (e) {
     console.error('office 监视器启动失败', e);
     return;
   }
   officeWatcher.on('error', (e) => console.error('office 监视器错误', e.message));
-  officeWatcher.on('exit', (code) => console.log(`office 监视器退出 code=${code}`));
   const rl = readline.createInterface({ input: officeWatcher.stdout });
   rl.on('line', (line) => {
     const name = line.trim().toLowerCase();
@@ -634,6 +648,7 @@ if (!gotLock) {
     createPetWindow();
     createDragShield();     // 事件盾预创建（隐藏常驻，拖拽期间 show/hide 复用——问题 1）
     createTray();
+    setOpenAtLogin(getOpenAtLogin()); // 开机自启动：首次默认开启（无记录时写 true）
     registerIpc();
     reminderManager.start();
     startFleeMonitor();     // 快扫 → 跑开监测

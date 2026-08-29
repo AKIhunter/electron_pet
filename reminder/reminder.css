@@ -1,49 +1,69 @@
 /* ============================================================================
- * 提醒面板样式（reminder.css，配 reminder/reminder.html）
+ * 控制面板样式（reminder.css，配 reminder/reminder.html）
  * ============================================================================
- * ★ 配色集中在头部渐变与按钮主色两处。
+ * ★ 设计 token 集中在 :root；品牌主色为粉紫渐变，其余用中性灰。
  */
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
+  --brand-1: #6b8ec6; --brand-2: #8a6bb8;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  --text-strong: #2b2b2b; --text-body: #444; --text-muted: #888;
+  --line: #ece7ef; --surface: #fff; --bg: #faf3f6; --danger: #e5484d;
+}
+
 * { box-sizing: border-box; }
 
-/* 面板整体：字体 / 底色 / 文字色 */
 body {
   margin: 0;
   font-family: "Microsoft YaHei", system-ui, sans-serif;
-  background: #faf3f6; /* 面板底色 */
-  color: #333;
+  background: var(--bg);
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-/* 头部标题栏（★ 主色渐变改这里） */
-header {
-  padding: 14px 16px 10px;
-  background: linear-gradient(135deg, #6b8ec6, #8a6bb8);
+/* 头部标题栏（★ 品牌渐变改这里） */
+.panel-header {
+  padding: var(--space-4);
+  background: var(--brand-grad);
   color: #fff;
 }
-header h1 { margin: 0; font-size: 18px; }
-header h1::before { content: "🐾 "; }
+.panel-header h1 { margin: 0; font-size: 17px; font-weight: 600; }
 
-/* 工具栏：培养手册 / 下载崩溃日志（★ 按钮底色改这里） */
-.toolbar {
-  display: flex;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+/* 分区：标题 + 内容，白底 + 细分隔线 */
+.section {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
-.toolbar button {
-  position: relative; /* 红点以按钮为定位基准 */
-  padding: 7px 12px;
-  border: 1px solid #ddd;
+.section-title {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+}
+
+/* 按钮：主（品牌渐变）/ 次（描边） */
+.btn {
+  padding: 8px 14px;
   border-radius: 6px;
-  background: #fff;
-  color: #555;
   font-size: 13px;
   cursor: pointer;
+  border: 1px solid transparent;
+  background: #fff;
+  color: var(--text-body);
 }
-.toolbar button:hover { background: #f4f6fb; border-color: #b9c6f0; }
+.btn-primary { background: var(--brand-grad); color: #fff; }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-outline { border-color: #ddd; }
+.btn-outline:hover { border-color: var(--brand-1); background: #f4f6fb; }
+.btn:disabled { opacity: 0.6; cursor: default; }
 
-/* 红点：存在未下载的崩溃日志时显示（默认隐藏；点击下载成功后由 JS 隐藏）
-   ★ 大小/偏移/颜色改这里 */
+/* 工具栏（培养手册 / 导出崩溃日志） */
+.tool-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+#download-log { position: relative; }
+
+/* 红点：存在未下载的崩溃日志时显示 */
 .dot {
   display: none;
   position: absolute;
@@ -52,20 +72,57 @@ header h1::before { content: "🐾 "; }
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #e5484d;
+  background: var(--danger);
   border: 2px solid #fff;
 }
 .dot.on { display: inline-block; }
 
-/* 添加表单：时间 + 内容 + 按钮 */
-#add-form {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+/* 开关：开启态用品牌渐变（★ 开关尺寸/配色改这里） */
+.switch {
+  appearance: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #d8d2de;
+  position: relative;
+  cursor: pointer;
+  transition: background .15s;
+  flex-shrink: 0;
+  margin: 0;
 }
-#add-form input {
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left .15s;
+}
+.switch:checked { background: var(--brand-grad); }
+.switch:checked::after { left: 20px; }
+.switch:focus-visible { outline: 2px solid var(--brand-1); outline-offset: 2px; }
+
+/* 设置行（通用分区：开关 + 名称 + 说明） */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.setting-text { display: flex; flex-direction: column; }
+.setting-name { font-size: 14px; color: var(--text-strong); }
+.setting-desc { font-size: 12px; color: var(--text-muted); }
+
+/* 添加表单：时间 + 内容 + 按钮 */
+.add-form {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.add-form input {
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
@@ -73,49 +130,40 @@ header h1::before { content: "🐾 "; }
   border-radius: 6px;
   font-size: 13px;
 }
-#add-form input:focus { outline: 2px solid #b9c6f0; border-color: transparent; }
-#add-form button {
-  padding: 8px 14px;
-  border: none;
-  border-radius: 6px;
-  background: #6b8ec6; /* ★ 添加按钮主色 */
-  color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-}
-#add-form button:hover { background: #5a7cb2; }
+.add-form input:focus { outline: 2px solid #b9c6f0; border-color: transparent; }
 
-/* 提醒列表：条目 = 时间 + 内容 + 删除 */
-#list {
+/* 提醒列表 */
+.list {
   list-style: none;
   margin: 0;
-  padding: 8px 16px;
-  max-height: 300px; /* ★ 列表最大高度 px（超出滚动） */
+  padding: 0;
+  max-height: 240px;
   overflow-y: auto;
 }
-#list li {
+.list li {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 6px;
-  border-bottom: 1px dashed #eee;
+  padding: 10px 4px;
+  border-bottom: 1px dashed var(--line);
 }
-#list li .time {
+.list li .time {
   flex-shrink: 0;
-  width: 108px;
+  width: 92px;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
-#list li .text { flex: 1; font-size: 14px; }
-#list li button {
+.list li .text { flex: 1; font-size: 14px; }
+.list li button {
   flex-shrink: 0;
   border: none;
   background: transparent;
-  color: #c66; /* 删除按钮红 */
+  color: #c66;
   font-size: 15px;
   cursor: pointer;
 }
-#list li button:hover { color: #a44; }
+.list li button:hover { color: #a44; }
 
 /* 空态提示 */
 #empty {
@@ -125,28 +173,16 @@ header h1::before { content: "🐾 "; }
   font-size: 13px;
 }
 
-/* 版本栏：当前版本 / 检查更新 / 下载并重启 + 状态文案（面板底部） */
+/* 版本栏：当前版本 / 检查更新 / 下载并更新 + 状态文案 */
 .versionbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #fff;
-  border-top: 1px solid #eee;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
-.versionbar button {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #555;
-  font-size: 12px;
-  cursor: pointer;
-}
-.versionbar button:hover { background: #f4f6fb; border-color: #b9c6f0; }
-.versionbar button:disabled { opacity: 0.6; cursor: default; }
+.versionbar .version { flex-shrink: 0; }
 #update-status {
   flex: 1;
   min-width: 0;

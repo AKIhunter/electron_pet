@@ -38,6 +38,10 @@ contextBridge.exposeInMainWorld('StitchPet', {
   crashLogStatus: () => ipcRenderer.invoke('crash:status'),      // 未下载崩溃条数（驱动红点）
   downloadCrashLog: () => ipcRenderer.invoke('crash:download'),  // 合并日志 → 另存为；成功后清除红点标记
 
+  // ---- 开机自启动（控制面板「通用」开关；实现见 main.js settings）----
+  getOpenAtLogin: () => ipcRenderer.invoke('settings:getOpenAtLogin'),        // 读当前开机自启动状态
+  setOpenAtLogin: (enabled) => ipcRenderer.invoke('settings:setOpenAtLogin', enabled), // 设置并持久化
+
   // ---- 版本与自动更新（任务 4；控制面板版本栏调用，实现见 updater.js）----
   appVersion: () => ipcRenderer.invoke('app:version'),           // 当前版本号
   updateCheck: () => ipcRenderer.invoke('update:check'),         // 查 GitHub 最新 Release

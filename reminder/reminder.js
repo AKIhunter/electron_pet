@@ -2,9 +2,8 @@
 /* ============================================================================
  * 控制面板逻辑（reminder.js，配 reminder/reminder.html）
  * ============================================================================
- * 提醒列表的增删 + 工具栏（培养手册 / 下载崩溃日志红点）。
- * 数据经 preload（window.StitchPet）存主进程 userdata/reminders.json。
- * ★ 面板尺寸在 main.js openReminderWindow()。
+ * 分区：提醒（增删）/ 通用（开机自启动开关）/ 工具与更新（培养手册、导出崩溃日志、版本栏）。
+ * 数据经 preload（window.StitchPet）存主进程 userdata/。
  */
 const CD = window.StitchPet;
 const list = document.getElementById('list');
@@ -14,40 +13,52 @@ const textInput = document.getElementById('remind-text');
 const manualBtn = document.getElementById('manual-btn');
 const downloadBtn = document.getElementById('download-log');
 const crashDot = document.getElementById('crash-dot');
+const autostartToggle = document.getElementById('open-at-login');
 
-// ---------------- 崩溃日志红点 + 下载（问题 8）
-// 打开面板时查询未下载数量：>0 显示红点；点下载 → 主进程弹另存为 → 成功后隐藏红点
+const pad = (n) => String(n).padStart(2, '0');
+// datetime-local 输入框需要 yyyy-MM-ddTHH:mm 格式
+function formatLocal(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ---------------- 开机自启动（默认开启；设置持久化在 userdata/settings.json）
+async function fillAutostart() {
+  try { autostartToggle.checked = await CD.getOpenAtLogin(); }
+  catch (e) { /* 失败保持默认 */ }
+}
+autostartToggle.addEventListener('change', async () => {
+  try { await CD.setOpenAtLogin(autostartToggle.checked); }
+  catch (e) { autostartToggle.checked = !autostartToggle.checked; } // 失败回滚
+});
+
+// ---------------- 崩溃日志红点 + 导出
 async function refreshCrashDot() {
   try {
     const st = await CD.crashLogStatus();
     crashDot.classList.toggle('on', (st && st.count > 0));
   } catch (e) { /* 查询失败保持默认隐藏 */ }
 }
-
 downloadBtn.onclick = async () => {
   try {
     const r = await CD.downloadCrashLog();
     if (r && r.ok) {
-      crashDot.classList.remove('on'); // 下载成功 → 红点消失
+      crashDot.classList.remove('on');
       alert(`崩溃日志已保存到：\n${r.path}`);
     } else if (r && r.reason === 'no-logs') {
       crashDot.classList.remove('on');
       alert('当前没有崩溃日志');
     } else if (r && r.reason === 'canceled') {
-      /* 用户取消保存：红点保留，等待下次下载 */
+      /* 用户取消保存：红点保留 */
     }
   } catch (e) { /* 失败：红点保留 */ }
 };
 
-// 培养手册：打开操作说明窗口（main.js openManualWindow）
+// 培养手册
 manualBtn.onclick = () => CD.openManual();
 
-// 默认时间 = 当前 + 5 分钟（★ 60000×5 改提前量）
-const def = new Date(Date.now() + 5 * 60000);
-const pad = (n) => String(n).padStart(2, '0');
-timeInput.value =
-  `${def.getFullYear()}-${pad(def.getMonth() + 1)}-${pad(def.getDate())}T` +
-  `${pad(def.getHours())}:${pad(def.getMinutes())}`;
+// 默认时间 = 当前 + 5 分钟
+const defaultTime = new Date(Date.now() + 5 * 60000);
+timeInput.value = formatLocal(defaultTime);
 
 // 显示格式：MM-DD HH:mm
 function fmt(time) {
@@ -55,14 +66,14 @@ function fmt(time) {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// 拉取提醒列表并渲染（空态提示 / 时间 + 内容 + 删除按钮）
+// 拉取提醒列表并渲染
 async function render() {
   const items = await CD.listReminders();
   list.innerHTML = '';
   if (!items.length) {
     const div = document.createElement('div');
     div.id = 'empty';
-    div.textContent = '还没有提醒，添加一个吧～';
+    div.textContent = '还没有提醒，添加一个吧';
     list.appendChild(div);
     return;
   }
@@ -96,16 +107,11 @@ form.onsubmit = async (e) => {
   }
   await CD.addReminder({ time, text });
   textInput.value = '';
-  timeInput.value = def;
+  timeInput.value = formatLocal(new Date(Date.now() + 5 * 60000));
   render();
 };
 
-render();
-refreshCrashDot(); // 打开面板时刷新崩溃日志红点
-
-// ---------------- 版本栏 + 自动更新（任务 4）
-// 载入填当前版本；「检查更新」查 GitHub 最新 Release（updater.js checkLatest），
-// 有新版 → 显示「下载并重启」；进度经 onUpdateProgress 实时刷新状态文案。
+// ---------------- 版本栏 + 自动更新
 const versionEl = document.getElementById('app-version');
 const checkBtn = document.getElementById('check-update');
 const doBtn = document.getElementById('do-update');
@@ -155,4 +161,7 @@ CD.onUpdateProgress((s) => {
   }
 });
 
+render();
+refreshCrashDot();
+fillAutostart();
 fillVersion();

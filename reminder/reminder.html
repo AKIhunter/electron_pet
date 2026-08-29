@@ -7,31 +7,47 @@
   <link rel="stylesheet" href="reminder.css" />
 </head>
 <body>
-  <!-- 控制面板：头部标题 + 工具栏 + 添加表单（时间/内容） + 列表 -->
-  <header>
-    <h1>⏰ 控制面板</h1>
+  <!-- 控制面板：提醒 / 通用 / 工具与更新 三个分区 -->
+  <header class="panel-header">
+    <h1>控制面板</h1>
   </header>
 
-  <!-- 工具栏：培养手册（操作说明）/ 下载崩溃日志（右侧红点 = 有未下载的崩溃记录） -->
-  <div class="toolbar">
-    <button id="manual-btn" type="button">📖 培养手册</button>
-    <button id="download-log" type="button">⬇ 下载崩溃日志<span id="crash-dot" class="dot"></span></button>
-  </div>
+  <main class="panel-body">
+    <section class="section">
+      <h2 class="section-title">提醒</h2>
+      <form id="add-form" class="add-form">
+        <input id="remind-time" type="datetime-local" required aria-label="提醒时间" />
+        <input id="remind-text" type="text" placeholder="提醒内容，如：下午开会" required aria-label="提醒内容" />
+        <button type="submit" class="btn btn-primary">添加提醒</button>
+      </form>
+      <ul id="list" class="list"></ul>
+    </section>
 
-  <form id="add-form">
-    <input id="remind-time" type="datetime-local" required />
-    <input id="remind-text" type="text" placeholder="提醒内容，如：下午开会" required />
-    <button type="submit">添加</button>
-  </form>
-  <ul id="list"></ul>
+    <section class="section">
+      <h2 class="section-title">通用</h2>
+      <label class="setting-row">
+        <span class="setting-text">
+          <span class="setting-name">开机自启动</span>
+          <span class="setting-desc">登录 Windows 后自动运行桌宠</span>
+        </span>
+        <input id="open-at-login" type="checkbox" class="switch" />
+      </label>
+    </section>
 
-  <!-- 版本栏：当前版本 + 检查更新（发现新版本时显示下载按钮，进度显示在右侧） -->
-  <footer class="versionbar">
-    <span id="app-version">当前版本 v—</span>
-    <button id="check-update" type="button">⟳ 检查更新</button>
-    <button id="do-update" type="button" hidden>⬇ 下载并重启</button>
-    <span id="update-status"></span>
-  </footer>
+    <section class="section">
+      <h2 class="section-title">工具与更新</h2>
+      <div class="tool-row">
+        <button id="manual-btn" type="button" class="btn btn-outline">培养手册</button>
+        <button id="download-log" type="button" class="btn btn-outline">导出崩溃日志<span id="crash-dot" class="dot"></span></button>
+      </div>
+      <div class="versionbar">
+        <span id="app-version" class="version">当前版本 v—</span>
+        <button id="check-update" type="button" class="btn btn-outline">检查更新</button>
+        <button id="do-update" type="button" class="btn btn-primary" hidden>下载并更新</button>
+        <span id="update-status" class="status"></span>
+      </div>
+    </section>
+  </main>
   <script src="reminder.js"></script>
 </body>
 </html>
