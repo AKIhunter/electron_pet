@@ -1,0 +1,41 @@
+{
+  "name": "stitch-pet-electron",
+  "version": "1.0.0",
+  "description": "史迪奇桌面宠物（Electron 版）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "author": "StitchPet",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.stitch.pet",
+    "productName": "electron_pet",
+    "artifactName": "${productName}-v${version}-${os}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "flee.js",
+      "updater.js",
+      "office-watch.ps1",
+      "config.json",
+      "renderer/**/*",
+      "reminder/**/*",
+      "assets/**/*"
+    ],
+    "asarUnpack": [
+      "office-watch.ps1"
+    ],
+    "win": {
+      "target": [
+        "zip"
+      ],
+      "icon": "build/icon.ico"
+    }
+  }
+}

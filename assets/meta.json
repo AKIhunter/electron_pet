@@ -1,0 +1,46 @@
+{
+  "canvas": 256,
+  "h_target": 190,
+  "w_max": 240,
+  "anchor": [
+    128,
+    254
+  ],
+  "actions": {
+    "wave": {
+      "frames": 13,
+      "cutout": false,
+      "scale": 0.380762
+    },
+    "drag": {
+      "frames": 5,
+      "cutout": false,
+      "scale": 0.375
+    },
+    "run": {
+      "frames": 30,
+      "cutout": false,
+      "scale": 0.377734
+    },
+    "idle1": {
+      "frames": 37,
+      "cutout": true,
+      "scale": 0.385396
+    },
+    "idle2": {
+      "frames": 37,
+      "cutout": true,
+      "scale": 0.392562
+    },
+    "review1": {
+      "frames": 63,
+      "cutout": true,
+      "scale": 0.46875
+    },
+    "review2": {
+      "frames": 37,
+      "cutout": true,
+      "scale": 0.393375
+    }
+  }
+}

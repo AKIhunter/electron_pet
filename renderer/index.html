@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'" />
+  <title>史迪奇桌面宠物</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- stage：交互层（pet.js 在其上绑定拖拽/点击）；sprite：动画帧图；bubble：提醒气泡 -->
+  <div id="stage">
+    <img id="sprite" alt="" draggable="false" />
+    <div id="bubble" hidden>
+      <span id="bubble-text"></span>
+    </div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>

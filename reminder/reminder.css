@@ -1,0 +1,158 @@
+/* ============================================================================
+ * 提醒面板样式（reminder.css，配 reminder/reminder.html）
+ * ============================================================================
+ * ★ 配色集中在头部渐变与按钮主色两处。
+ */
+* { box-sizing: border-box; }
+
+/* 面板整体：字体 / 底色 / 文字色 */
+body {
+  margin: 0;
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  background: #faf3f6; /* 面板底色 */
+  color: #333;
+}
+
+/* 头部标题栏（★ 主色渐变改这里） */
+header {
+  padding: 14px 16px 10px;
+  background: linear-gradient(135deg, #6b8ec6, #8a6bb8);
+  color: #fff;
+}
+header h1 { margin: 0; font-size: 18px; }
+header h1::before { content: "🐾 "; }
+
+/* 工具栏：培养手册 / 下载崩溃日志（★ 按钮底色改这里） */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+.toolbar button {
+  position: relative; /* 红点以按钮为定位基准 */
+  padding: 7px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  font-size: 13px;
+  cursor: pointer;
+}
+.toolbar button:hover { background: #f4f6fb; border-color: #b9c6f0; }
+
+/* 红点：存在未下载的崩溃日志时显示（默认隐藏；点击下载成功后由 JS 隐藏）
+   ★ 大小/偏移/颜色改这里 */
+.dot {
+  display: none;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e5484d;
+  border: 2px solid #fff;
+}
+.dot.on { display: inline-block; }
+
+/* 添加表单：时间 + 内容 + 按钮 */
+#add-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+#add-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+#add-form input:focus { outline: 2px solid #b9c6f0; border-color: transparent; }
+#add-form button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #6b8ec6; /* ★ 添加按钮主色 */
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+#add-form button:hover { background: #5a7cb2; }
+
+/* 提醒列表：条目 = 时间 + 内容 + 删除 */
+#list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 16px;
+  max-height: 300px; /* ★ 列表最大高度 px（超出滚动） */
+  overflow-y: auto;
+}
+#list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-bottom: 1px dashed #eee;
+}
+#list li .time {
+  flex-shrink: 0;
+  width: 108px;
+  font-size: 12px;
+  color: #888;
+}
+#list li .text { flex: 1; font-size: 14px; }
+#list li button {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #c66; /* 删除按钮红 */
+  font-size: 15px;
+  cursor: pointer;
+}
+#list li button:hover { color: #a44; }
+
+/* 空态提示 */
+#empty {
+  padding: 30px;
+  text-align: center;
+  color: #bbb;
+  font-size: 13px;
+}
+
+/* 版本栏：当前版本 / 检查更新 / 下载并重启 + 状态文案（面板底部） */
+.versionbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #888;
+}
+.versionbar button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  font-size: 12px;
+  cursor: pointer;
+}
+.versionbar button:hover { background: #f4f6fb; border-color: #b9c6f0; }
+.versionbar button:disabled { opacity: 0.6; cursor: default; }
+#update-status {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules/
+dist/
+*.zip
+
+# 运行期用户数据（提醒/崩溃日志，绝不上传）
+userdata/
+
+# 调试与测试产物
+verify/
+*.log
+
+# 原始素材（58MB 原始版权素材，处理结果已在 assets/）
+raw/
+
+# 凭据保险（token 实际存于仓库外 e:\Trae_Project\.github_token）
+.github_token*
+.env
+
+# 系统文件
+.DS_Store
+Thumbs.db

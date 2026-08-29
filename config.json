@@ -1,0 +1,68 @@
+{
+  "name": "史迪奇桌面宠物",
+  "displayScale": 1,
+  "frameCanvas": 256,
+  "behaviors": {
+    "idle": {
+      "priority": 0,
+      "loops": true,
+      "actions": ["idle1", "idle2"],
+      "frameIntervalMs": 66,
+      "alternateMs": 6000
+    },
+    "run": {
+      "priority": 1,
+      "loops": true,
+      "action": "run",
+      "frameIntervalMs": 55,
+      "maxMs": 3200
+    },
+    "review": {
+      "priority": 2,
+      "loops": false,
+      "actions": ["review1", "review2"],
+      "frameIntervalMs": 40
+    },
+    "wave": {
+      "priority": 3,
+      "loops": false,
+      "action": "wave",
+      "frameIntervalMs": 85
+    },
+    "drag": {
+      "priority": 4,
+      "loops": false,
+      "holdLast": true,
+      "action": "drag",
+      "frameIntervalMs": 100
+    }
+  },
+  "cooldowns": {
+    "reviewCooldownMs": 20000,
+    "waveCooldownMs": 1200
+  },
+  "interaction": {
+    "dragThreshold": 6,
+    "fastMoveSampleMs": 40,
+    "swipeTravelPx": 200,
+    "swipeGapMs": 250,
+    "fleeDistancePx": 400,
+    "fleeDurationMs": 1600,
+    "fleeCooldownMs": 1000
+  },
+  "office": {
+    "enabled": true,
+    "processNames": ["excel", "winword", "powerpnt", "onenote", "outlook", "wps", "et", "wpp"],
+    "ignoreForeground": ["electron"]
+  },
+  "tray": {
+    "tooltip": "史迪奇桌面宠物",
+    "menu": ["reminder", "toggleShow", "separator", "quit"]
+  },
+  "update": {
+    "repoOwner": "AKIhunter",
+    "repoName": "electron_pet",
+    "proxyUrl": "http://127.0.0.1:7890",
+    "exeName": "electron_pet.exe"
+  }
+}

@@ -1,0 +1,74 @@
+/* ============================================================================
+ * 宠物窗口样式（style.css，配 renderer/index.html）
+ * ============================================================================
+ * 窗口本体透明，仅显示帧图；★ 可调项集中在「提醒气泡」段。
+ */
+
+/* 全窗口透明 + 禁选中（宠物窗口基础） */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 交互层：占满窗口，接收指针事件（pet.js 在其上绑定交互） */
+#stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+/* 动画帧图：铺满窗口等比缩放；pointer-events none 让点击落到 stage */
+#sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+  pointer-events: none;
+  /* ★ 底部中心锚定（问题 6）：缩放/换动作时"脚不动、向上缩放"，
+     配合 pet.js 的 ACTION_VISUAL 缩放表，消除待机两套素材交替时的顶端跳动 */
+  transform-origin: 50% 100%;
+}
+
+/* 警示：禁用系统级拖拽，让 JS 接管窗口移动 */
+#stage {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------------- 提醒气泡（★ 位置/尺寸/配色改这里）---------------- */
+#bubble {
+  position: absolute;
+  left: 50%;
+  top: 2%;                /* ★ 距窗口顶部 2%（须留在窗口内，否则被透明窗口裁剪） */
+  transform: translateX(-50%);
+  min-width: 40px;
+  max-width: 180px;       /* ★ 最大宽度 px（过长换行） */
+  background: rgba(255, 255, 255, 0.95); /* 气泡底色 */
+  color: #333;            /* 文字颜色 */
+  border: 1px solid #d8a6b8;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  word-break: break-word;
+  pointer-events: none;
+}
+/* 气泡小尾巴（颜色随边框） */
+#bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #d8a6b8;
+}

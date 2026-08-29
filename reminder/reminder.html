@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'" />
+  <title>控制面板</title>
+  <link rel="stylesheet" href="reminder.css" />
+</head>
+<body>
+  <!-- 控制面板：头部标题 + 工具栏 + 添加表单（时间/内容） + 列表 -->
+  <header>
+    <h1>⏰ 控制面板</h1>
+  </header>
+
+  <!-- 工具栏：培养手册（操作说明）/ 下载崩溃日志（右侧红点 = 有未下载的崩溃记录） -->
+  <div class="toolbar">
+    <button id="manual-btn" type="button">📖 培养手册</button>
+    <button id="download-log" type="button">⬇ 下载崩溃日志<span id="crash-dot" class="dot"></span></button>
+  </div>
+
+  <form id="add-form">
+    <input id="remind-time" type="datetime-local" required />
+    <input id="remind-text" type="text" placeholder="提醒内容，如：下午开会" required />
+    <button type="submit">添加</button>
+  </form>
+  <ul id="list"></ul>
+
+  <!-- 版本栏：当前版本 + 检查更新（发现新版本时显示下载按钮，进度显示在右侧） -->
+  <footer class="versionbar">
+    <span id="app-version">当前版本 v—</span>
+    <button id="check-update" type="button">⟳ 检查更新</button>
+    <button id="do-update" type="button" hidden>⬇ 下载并重启</button>
+    <span id="update-status"></span>
+  </footer>
+  <script src="reminder.js"></script>
+</body>
+</html>

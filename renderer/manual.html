@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>培养手册</title>
+  <style>
+    /* 自包含静态页（无外部依赖）：配色与控制面板一致 */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", system-ui, sans-serif;
+      color: #333;
+      background: #faf3f6;
+    }
+    header {
+      padding: 16px 20px 12px;
+      background: linear-gradient(135deg, #6b8ec6, #8a6bb8);
+      color: #fff;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 6px 0 0; font-size: 12px; opacity: .9; }
+    main { padding: 14px 20px 28px; }
+    section { margin-bottom: 18px; }
+    h2 {
+      font-size: 15px;
+      margin: 0 0 8px;
+      padding-left: 8px;
+      border-left: 4px solid #8a6bb8;
+    }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 8px 10px; font-size: 13px; text-align: left; border-bottom: 1px solid #f0e8f0; }
+    th { background: #f3eef8; color: #6b5a8a; font-size: 12px; }
+    tr:last-child td { border-bottom: none; }
+    .hint {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px dashed #d8c6e8;
+      border-radius: 8px;
+      font-size: 12.5px;
+      color: #666;
+      line-height: 1.7;
+    }
+    code { background: #f3eef8; padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #6b5a8a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📖 史迪奇培养手册</h1>
+    <p>一份简洁的操作说明：什么时候它会有什么反应</p>
+  </header>
+  <main>
+    <section>
+      <h2>动作触发一览</h2>
+      <table>
+        <tr><th>动作</th><th>怎么触发</th><th>表现</th></tr>
+        <tr><td>🧘 待机</td><td>什么都不做（默认状态）</td><td>待机1 / 待机2 两套动画随机交替循环</td></tr>
+        <tr><td>👋 挥手打招呼</td><td>鼠标<b>左键单击</b>宠物</td><td>单爪抬起挥手，播完回到待机（1.2 秒内连点不重复触发）</td></tr>
+        <tr><td>🏃 跑开奔跑</td><td>鼠标<b>在宠物身上一次性划过约 200px</b>（来回划也可以）</td><td>朝<b>远离鼠标的方向</b>跑开一段距离；向右跑用默认素材，向左跑自动左右镜像</td></tr>
+        <tr><td>🤔 审阅思考</td><td><b>WPS、Excel 等办公软件</b>处于前台时（右键单击也可触发）</td><td>进入审阅动画；<b>完整播完一次后冷却 20 秒</b>再自动重播，切走办公软件回待机</td></tr>
+        <tr><td>🫳 抓起拖拽</td><td>左键<b>按住并拖动</b>（移动超过 6px 即算拖拽）</td><td>跟手移动；抓起动画播完<b>定格在最后一帧</b>，松手落下回待机/审阅</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>提醒与托盘</h2>
+      <div class="hint">
+        ・托盘图标（通知区）右键：<b>培养手册 / 控制面板 / 显示隐藏宠物 / 退出</b><br>
+        ・宠物右键菜单同样可打开培养手册与控制面板<br>
+        ・控制面板里添加带时间的提醒，到点后系统通知 + 宠物头顶冒文字泡泡<br>
+        ・控制面板中的 <b>「下载崩溃日志」</b>：按钮带红点说明有未下载的崩溃记录，下载成功红点消失
+      </div>
+    </section>
+
+    <section>
+      <h2>想调整参数？</h2>
+      <div class="hint">
+        动作速度 / 优先级 / 冷却 → <code>renderer/pet.js</code> 顶部 <code>BEHAVIORS / COOLDOWN</code>；<br>
+        体型缩放（0.75 倍等）→ <code>renderer/pet.js</code> 的 <code>ACTION_VISUAL</code>；<br>
+        跑开灵敏度 / 距离 → <code>config.json</code> 的 <code>interaction</code>；<br>
+        完整速查表见项目 <code>README.md</code>（所有可改参数都带 ★ 注释）。
+      </div>
+    </section>
+  </main>
+</body>
+</html>
