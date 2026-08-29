@@ -19,7 +19,7 @@
 
 **托盘**：通知区史迪奇图标（**裁掉透明边后内容撑满**，更清晰），菜单含 培养手册 / 控制面板 / 显示隐藏宠物 / 退出。
 
-**控制面板**（原提醒面板）：可从托盘或右键菜单打开；工具栏含 **📖 培养手册**（动作触发条件速览）与 **⬇ 下载崩溃日志**；添加带时间的提醒，到点后**系统原生通知 + 宠物头上冒文字泡泡**；提醒持久化到本地（`userdata/reminders.json`），一次性触发后自动移除。
+**控制面板**（原提醒面板）：可从托盘或右键菜单打开；工具栏含 **📖 培养手册**（动作触发条件速览）与 **⬇ 下载崩溃日志**；添加带时间的提醒，到点后**系统原生通知 + 宠物头上冒文字泡泡**；提醒持久化到本地（`userdata/reminders.json`），一次性触发后自动移除。底部**版本栏**：显示当前版本 + **⟳ 检查更新**（发现新版本出现「下载并重启」按钮，实时进度见右侧状态，详见下文「自动更新」）。
 
 **崩溃日志**：主进程未捕获异常/未处理 Promise 拒绝/渲染进程崩溃均写入 `userdata/crash/crash-YYYYMMDD.log`（渲染崩溃自动 reload 复活）。存在未下载的崩溃记录时：下次启动宠物头顶弹气泡提示（12s），控制面板"下载崩溃日志"按钮右侧亮**红点**；点击下载（另存为合并日志）成功后红点消失，取消则保留。
 
@@ -47,12 +47,13 @@
 | 拖拽跟随平滑度 | `main.js` → `registerIpc()` 中跟随定时器 `16`（ms） | 16ms |
 | 提醒气泡样式（位置/宽度/配色） | `renderer/style.css` → `#bubble` 段 | — |
 | 气泡显示时长 | `renderer/pet.js` → `showBubble()` 默认参数 `6000`（崩溃提示 12000） | 6000ms |
-| 控制面板尺寸 | `main.js` → `openReminderWindow()` 中 `360 / 530` | 360×530 |
+| 控制面板尺寸 | `main.js` → `openReminderWindow()` 中 `360 / 575` | 360×575 |
 | 培养手册尺寸 | `main.js` → `openManualWindow()` 中 `500 / 640` | 500×640 |
 | 提醒检查间隔 | `main.js` → `CHECK_INTERVAL` | 1000ms |
 | 托盘图标尺寸 | `main.js` → `TRAY_ICON_SIZE`（裁透明边后缩放） | 64px |
 | 托盘菜单 / 右键菜单 | `main.js` → `createTray()` / `registerIpc()` 内 Menu 模板 | — |
 | 托盘提示文字 | `config.json` → `tray.tooltip` | 史迪奇桌面宠物 |
+| 自动更新仓库 / 下载代理 | `config.json` → `update` 段（repoOwner / repoName / proxyUrl / exeName） | AKIhunter / electron_pet、http://127.0.0.1:7890 |
 
 > ⚠ 注意：`config.json` 中的 `behaviors`、`cooldowns`、`interaction.dragThreshold` 目前为**参考值**（渲染层未读取），动作帧率/优先级/冷却/拖拽阈值的**实际生效位置是 `renderer/pet.js` 顶部的 `BEHAVIORS` / `COOLDOWN` / `INTERACTION`**。
 
@@ -80,15 +81,38 @@ npm start
 
 退出：托盘图标右键 → 退出。
 
+## 打包发布（便携 zip）
+
+```powershell
+$env:COMSPEC="C:\Windows\System32\cmd.exe"    # 沙盒环境必需（npm 生命周期脚本需要）
+$env:ELECTRON_CACHE="e:\Trae_Project\.ebcache\electron"  # 受限环境默认缓存目录不可写时改指可写目录
+$env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
+npm run build
+```
+
+产物：`dist/electron_pet-v1.0.0-win-x64.zip`——**解压即用的便携目录**（含 `electron_pet.exe`，免安装）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
+
+## 自动更新
+
+控制面板底部版本栏点 **⟳ 检查更新** → 主进程请求 GitHub `releases/latest`（`api.github.com` 直连）→ 与本地版本逐段比较：
+
+- **无新版**：显示「已是最新（vX.Y.Z）」。
+- **有新版**：出现 **⬇ 下载并重启** → curl 下载 zip 资产（**先直连，失败/超时自动改走 `config.update.proxyUrl` 代理**；500ms 轮询临时文件大小算百分比）→ `Expand-Archive` 解压并校验包内含 `electron_pet.exe` → 生成换壳脚本 `update.ps1`（等旧进程退出 ≤30s → 旧目录挪 `.old` → 新目录就位 → 拉起新版 → 延时清理 `.old`）→ 应用自动退出重启为新版。
+
+限制：仅便携 zip 形态支持（NSIS/Program Files 安装提示手动下载）；开发模式（npm start）只能检查不能安装。排障日志：`%TEMP%\electron_pet_update.log`。
+
 ## 项目结构
 
 ```
 stitch_pet_electron/
 ├── main.js               # 主进程：透明置顶窗口 / 托盘 / IPC / 跑开监视与位移 / 办公前台监视 / 提醒管理器 / 崩溃日志
+├── updater.js            # 自动更新（GitHub Release 检查 / 下载换壳重启）
 ├── flee.js               # 跑开位移数学 + SwipeAccumulator 快扫累计器（纯函数，可离线单测）
 ├── office-watch.ps1      # 前台窗口监视子进程（PowerShell，前台进程变更时输出一行）
 ├── preload.js            # contextBridge 安全桥
-├── config.json           # 行为/帧率/优先级/碰撞/冷却/跑开/办公清单等可调参数
+├── config.json           # 行为/帧率/优先级/碰撞/冷却/跑开/办公清单/自动更新等可调参数
+├── build/icon.ico        # 应用图标（tools/make_icon.py 生成，electron-builder 打包拾取）
 ├── renderer/
 │   ├── index.html        # 宠物窗口
 │   ├── pet.js            # 行为状态机 + 帧循环 + 交互 + 动作缩放/镜像
@@ -103,6 +127,7 @@ stitch_pet_electron/
 ├── raw/                  # 原始素材解压目录
 ├── userdata/             # userData（含 reminders.json 与 crash/ 崩溃日志，沙盒环境可写）
 └── tools/
+    ├── make_icon.py       # 应用图标生成（idle1 第 1 帧 → 多尺寸 icon.ico）
     ├── preprocess.py      # 素材预处理（去背景 + 固定变换归一化到 256×256 透明画布）
     ├── verify_frames.py   # 帧稳定性校验（帧数/位置抖动统计 + run 序列拼图）
     ├── capture_shots.ps1  # 运行时截屏（验证动画推进）
