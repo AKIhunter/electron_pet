@@ -3,8 +3,13 @@
  * 自动更新器（updater.js，主进程模块）
  * ============================================================================
  * 流程：GitHub API 查最新 Release → 与本地版本比较 → 下载 zip（代理优先，
- *       不可用自动改直连，慢速连接 30s 熔断）→ 解压校验 → 生成 update.ps1
- *       换壳（等旧进程退出 → 目录整体替换 → 拉起新版 → 清理旧目录）→ app.quit()。
+ *       不可用自动改直连，慢速连接 30s 熔断）→ 解压到应用目录旁的同卷暂存目录
+ *       （换壳两步 Move-Item 均为瞬时重命名；跨盘目录交换会退化成 122MB 慢速
+ *       复制，曾在真实链路中卡死）→ 生成 update.ps1 换壳脚本（参数内联）→
+ *       spawn 并等其写「就绪标记」→ app.quit()。
+ *       换壳脚本：预先站在 Wait-Process 上，旧进程一退出立刻同卷两步重命名
+ *       （失败自动回滚）→ 拉起新版 → 清理旧目录；被中断时由新版启动期
+ *       cleanupAfterUpdate 兜底清理。
  * 状态机（经 main.js 推送到控制面板）：
  *   downloading{percent} → extracting → restarting / error{message}
  *
@@ -156,25 +161,42 @@ function validateStaging(staging) {
 }
 
 // ------------------------------------------------------------------ 换壳脚本（运行时生成，不打包、不受 asar 限制）
-// ⚠ 参数经环境变量传入而非命令行：实测 powershell.exe -File <脚本> -Param 值 形态
-//   会静默退出（exit -1，脚本一行都不执行）；-File 裸调用（office-watch.ps1 同形态）稳定，
-//   故脚本内从 $env: 读取参数。
-function buildUpdatePs1() {
+// ★ 参数直接内联进脚本字面量（脚本每次更新都重新生成，无需 param/env 传递——
+//   实测 powershell.exe -File 带参数会静默退出；环境变量在跨进程链路上不可靠）
+// ★ 第一件事写「就绪标记」：应用轮询到该文件才 app.quit()，确保脚本已完成
+//   PowerShell 启动并站在 Wait-Process 上——旧进程一退出（0ms 起）立刻执行
+//   两步同卷重命名，几十毫秒内完成关键交换，不给任何收割者可乘之机。
+function buildUpdatePs1(appDir, srcDir, stagingRoot, exeRel, targetPid, readyMark) {
+  const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
   return `
 $log = Join-Path $env:TEMP 'electron_pet_update.log'
 function L([string]$m) { try { Add-Content -Path $log -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [ps1] $m" } catch {} }
-$TargetPid = [int]$env:PET_UPDATE_TARGET_PID
-$AppDir = $env:PET_UPDATE_APP_DIR
-$SrcDir = $env:PET_UPDATE_SRC_DIR
-$ExeRel = $env:PET_UPDATE_EXE_REL
+$TargetPid = ${parseInt(targetPid, 10) || 0}
+$AppDir = ${q(appDir)}
+$SrcDir = ${q(srcDir)}
+$StagingRoot = ${q(stagingRoot)}
+$ExeRel = ${q(exeRel)}
+$ReadyMark = ${q(readyMark || '')}
+try { Set-Content -Path $ReadyMark -Value 'ready' } catch {}
+L "ps1 start pid=$PID old=$TargetPid app=$AppDir src=$SrcDir"
 try {
   if ($TargetPid -gt 0) { Wait-Process -Id $TargetPid -Timeout 30 -ErrorAction SilentlyContinue }
   L "old pid $TargetPid exited"
   if (Test-Path "$AppDir.old") { Remove-Item "$AppDir.old" -Recurse -Force -ErrorAction SilentlyContinue }
   Move-Item -LiteralPath $AppDir -Destination "$AppDir.old" -Force
   L "moved old -> $AppDir.old"
-  Move-Item -LiteralPath $SrcDir -Destination $AppDir -Force
-  L "new in place -> $AppDir"
+  try {
+    Move-Item -LiteralPath $SrcDir -Destination $AppDir -Force
+    L "new in place -> $AppDir"
+  } catch {
+    L ("ERROR new move failed: " + $_.Exception.Message)
+    try { Move-Item -LiteralPath "$AppDir.old" -Destination $AppDir -Force; L "restored old -> $AppDir" }
+    catch { L ("ERROR restore failed: " + $_.Exception.Message) }
+    exit 1
+  }
+  if ($StagingRoot -and ($StagingRoot -ne $SrcDir) -and (Test-Path $StagingRoot)) {
+    Remove-Item $StagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
   Start-Process -FilePath (Join-Path $AppDir $ExeRel)
   L "restarted new version"
   Start-Sleep -Seconds 3
@@ -182,15 +204,29 @@ try {
     try { Remove-Item "$AppDir.old" -Recurse -Force -ErrorAction Stop; L "cleaned .old"; break }
     catch { L "clean retry $i"; Start-Sleep -Seconds 2 }
   }
+  if ($ReadyMark) { Remove-Item $ReadyMark -Force -ErrorAction SilentlyContinue }
 } catch {
   L ("ERROR " + $_.Exception.Message)
 }
 `.trim();
 }
 
+// 直接 spawn 换壳脚本：普通子进程 + stdio ignore + unref。
+// 实测（%TEMP%\electron_pet_update.log 2026-08-29 22:24 一轮）子进程在应用退出后
+// 仍继续执行并写日志——Electron 主进程退出不会连带杀掉 spawn 的子进程；此前换壳
+// 中断的真实根因是暂存目录与应用目录跨盘，Move-Item 退化为 122MB 慢速复制。
+// cwd 设为 tmpdir：子进程工作目录不能落在即将被改名的应用目录里。
+function spawnUpdateScript(ps1) {
+  const child = spawn('powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1],
+    { windowsHide: true, stdio: 'ignore', cwd: os.tmpdir() });
+  child.unref();
+  return child;
+}
+
 // ------------------------------------------------------------------ 安装入口（main.js 经 IPC 调用）
 async function downloadAndInstall(emit) {
-  if (!app.isPackaged) {
+  if (!app || !app.isPackaged) {
     emit({ stage: 'error', message: '开发模式不支持安装更新，请到 GitHub Release 下载 zip 手动替换' });
     return;
   }
@@ -207,37 +243,54 @@ async function downloadAndInstall(emit) {
       return;
     }
 
+    // 同卷暂存目录（应用目录旁）：换壳两步 Move-Item 均为瞬时重命名；
+    // 顺带清掉上次中断遗留的 .pet_update_* 残留
+    const appDirParent = path.dirname(appDir);
+    const staging = path.join(appDirParent, `.pet_update_${Date.now()}`);
+    try {
+      for (const d of fs.readdirSync(appDirParent)) {
+        if (/^\.pet_update_/.test(d)) {
+          fs.rmSync(path.join(appDirParent, d), { recursive: true, force: true });
+        }
+      }
+    } catch (e) { /* 忽略 */ }
+    try { fs.mkdirSync(staging, { recursive: true }); }
+    catch (e) {
+      log(`暂存目录创建失败 ${e.message}`);
+      emit({ stage: 'error', message: `无法在应用目录旁创建更新暂存目录，请手动下载更新` });
+      return;
+    }
+
     log(`更新开始 ${info.current} -> ${info.latest} ${info.url}`);
     emit({ stage: 'downloading', percent: 0 });
     const zipPath = await downloadZip(info.url, info.size, emit);
 
     emit({ stage: 'extracting' });
-    const staging = path.join(os.tmpdir(), `electron_pet_staging_${Date.now()}`);
     await extractZip(zipPath, staging);
     const srcDir = validateStaging(staging);
     try { fs.unlinkSync(zipPath); } catch (e) { /* 忽略 */ }
 
     emit({ stage: 'restarting' });
+    const readyMark = path.join(os.tmpdir(), `electron_pet_ready_${Date.now()}.txt`);
     const ps1 = path.join(os.tmpdir(), `electron_pet_update_${Date.now()}.ps1`);
-    fs.writeFileSync(ps1, buildUpdatePs1(), 'utf-8');
-    log(`spawn update.ps1 pid=${process.pid} appDir=${appDir} src=${srcDir} exe=${exeRel}`);
-    const child = spawn('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-      '-File', ps1,
-    ], {
-      // ⚠ 不用 detached + stdio 全 ignore：实测该组合在受限环境下子进程随父进程
-      //   退出被杀；v6 形态（无 detached + 半开管）实测换壳成功
-      windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        PET_UPDATE_TARGET_PID: String(process.pid),
-        PET_UPDATE_APP_DIR: appDir,
-        PET_UPDATE_SRC_DIR: srcDir,
-        PET_UPDATE_EXE_REL: exeRel,
-      },
+    fs.writeFileSync(ps1, buildUpdatePs1(appDir, srcDir, staging, exeRel, process.pid, readyMark), 'utf-8');
+    log(`spawn ps1 appDir=${appDir} src=${srcDir} staging=${staging} exe=${exeRel} oldPid=${process.pid}`);
+    const child = spawnUpdateScript(ps1);
+    // 等脚本写「就绪标记」再退出：确保它已站在 Wait-Process 上（旧进程一死
+    // 即刻换壳）；3s 兜底超时——脚本没就位也退出，靠脚本内 30s 等待窗口追赶。
+    // spawn 失败 / 脚本秒退（-File 静默失败一类）则中止本次更新。
+    const ok = await new Promise((resolve) => {
+      let done = false;
+      const finish = (v, why) => { if (done) return; done = true; clearInterval(poll); clearTimeout(t); log(why); resolve(v); };
+      const t = setTimeout(() => finish(true, '就绪等待超时，按已交接处理'), 3000);
+      const poll = setInterval(() => { if (fs.existsSync(readyMark)) finish(true, 'ps1 就绪，交接完成'); }, 40);
+      child.once('error', (e) => finish(false, `ps1 启动失败 ${e.message}`));
+      child.once('exit', (code) => finish(false, `ps1 提前退出 code=${code}`));
     });
-    child.unref(); // 独立于本进程存活：等退出 → 换壳 → 拉起新版
-    child.once('exit', (code) => log(`update.ps1 exited code=${code}`));
+    if (!ok) {
+      emit({ stage: 'error', message: '更新进程启动失败，请重试或到 GitHub 手动下载' });
+      return;
+    }
     log('app.quit() 调用');
     app.quit();
   } catch (e) {
@@ -247,4 +300,30 @@ async function downloadAndInstall(emit) {
   }
 }
 
-module.exports = { checkLatest, downloadAndInstall, buildUpdatePs1 };
+// ------------------------------------------------------------------ 启动期清理
+// 新版首启调用（仅打包形态，无需 await）：换壳脚本被中断时兜底——
+//   删 appDir.old（上轮旧版残留）+ 删 .pet_update_* 暂存残留。失败静默（重试由下轮兜）。
+async function cleanupAfterUpdate(dirOverride) {
+  if (!app || !app.isPackaged) return;
+  const appDir = dirOverride || path.dirname(process.execPath);
+  const appDirParent = path.dirname(appDir);
+  for (let i = 0; i < 3; i++) {
+    try {
+      if (fs.existsSync(`${appDir}.old`)) {
+        fs.rmSync(`${appDir}.old`, { recursive: true, force: true });
+        log(`启动清理：已删除 ${appDir}.old`);
+      }
+      break;
+    } catch (e) { await new Promise((r) => setTimeout(r, 600)); } // 旧进程尚未退干净，稍候重试
+  }
+  try {
+    for (const d of fs.readdirSync(appDirParent)) {
+      if (/^\.pet_update_/.test(d)) {
+        fs.rmSync(path.join(appDirParent, d), { recursive: true, force: true });
+        log(`启动清理：已删除暂存残留 ${d}`);
+      }
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+module.exports = { checkLatest, downloadAndInstall, buildUpdatePs1, spawnUpdateScript, cleanupAfterUpdate };
