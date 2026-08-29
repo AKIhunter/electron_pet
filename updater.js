@@ -5,8 +5,8 @@
  * 流程：GitHub API 查最新 Release → 与本地版本比较 → 下载 exe 安装包
  *       （代理优先，不可用自动改直连，慢速连接 30s 熔断）→ 静默运行安装器
  *       （/S 静默 + detached 脱离应用进程树）→ app.quit() 让安装器覆盖安装。
- *       electron-builder 的 NSIS oneClick 安装器会自己关闭运行中的旧版本并
- *       覆盖安装到同一目录（安装目录记录在注册表 InstallLocation），
+ *       electron-builder 的 NSIS 安装器为向导式（assisted）形态；/S 静默模式
+ *       仍复用注册表 InstallLocation 覆盖安装到原目录（即使自定义过安装路径），
  *       不再需要「解压 + 换壳自替换」的复杂逻辑。
  * 状态机（经 main.js 推送到控制面板）：
  *   downloading{percent} → installing / error{message}
@@ -127,7 +127,7 @@ async function downloadInstaller(url, size, emit) {
 }
 
 // ------------------------------------------------------------------ 运行安装器
-// /S 静默安装（oneClick 模式不弹向导）；detached + unref 脱离应用进程树，
+// /S 静默安装（向导式安装器同样支持）；detached + unref 脱离应用进程树，
 // 应用退出后安装器继续运行并覆盖安装（真实用户双击启动的环境无 job object，
 // detached 子进程可独立存活）。
 function spawnInstaller(exePath) {

@@ -19,9 +19,9 @@
 
 **托盘**：通知区史迪奇图标（**裁掉透明边后内容撑满**，更清晰），菜单含 培养手册 / 控制面板 / 显示隐藏宠物 / 退出。
 
-**控制面板**（原提醒面板）：可从托盘或右键菜单打开；工具栏含 **📖 培养手册**（动作触发条件速览）与 **⬇ 下载崩溃日志**；添加带时间的提醒，到点后**系统原生通知 + 宠物头上冒文字泡泡**；提醒持久化到本地（`userdata/reminders.json`），一次性触发后自动移除。底部**版本栏**：显示当前版本 + **⟳ 检查更新**（发现新版本出现「下载并重启」按钮，实时进度见右侧状态，详见下文「自动更新」）。
+**控制面板**：可从托盘或右键菜单打开，分「提醒 / 通用 / 工具与更新」三区。提醒区添加带时间提醒，到点后**系统原生通知 + 宠物头上冒文字泡泡**，持久化到 `userdata/reminders.json`；通用区含**开机自启动**开关（默认开启，登录 Windows 后自动运行）；工具与更新区含培养手册、导出崩溃日志、版本栏（显示当前版本 + 检查更新，详见下文「自动更新」）。
 
-**崩溃日志**：主进程未捕获异常/未处理 Promise 拒绝/渲染进程崩溃均写入 `userdata/crash/crash-YYYYMMDD.log`（渲染崩溃自动 reload 复活）。存在未下载的崩溃记录时：下次启动宠物头顶弹气泡提示（12s），控制面板"下载崩溃日志"按钮右侧亮**红点**；点击下载（另存为合并日志）成功后红点消失，取消则保留。
+**崩溃日志**：主进程未捕获异常/未处理 Promise 拒绝/渲染进程崩溃均写入 `userdata/crash/crash-YYYYMMDD.log`（渲染崩溃自动 reload 复活）。存在未下载的崩溃记录时：下次启动宠物头顶弹气泡提示（12s），控制面板"导出崩溃日志"按钮右侧亮**红点**；点击下载（另存为合并日志）成功后红点消失，取消则保留。
 
 ## 参数修改速查表（★ 想调行为看这里）
 
@@ -47,13 +47,13 @@
 | 拖拽跟随平滑度 | `main.js` → `registerIpc()` 中跟随定时器 `16`（ms） | 16ms |
 | 提醒气泡样式（位置/宽度/配色） | `renderer/style.css` → `#bubble` 段 | — |
 | 气泡显示时长 | `renderer/pet.js` → `showBubble()` 默认参数 `6000`（崩溃提示 12000） | 6000ms |
-| 控制面板尺寸 | `main.js` → `openReminderWindow()` 中 `360 / 575` | 360×575 |
+| 控制面板尺寸 | `main.js` → `openReminderWindow()` 中 `360 / 640` | 360×640 |
 | 培养手册尺寸 | `main.js` → `openManualWindow()` 中 `500 / 640` | 500×640 |
 | 提醒检查间隔 | `main.js` → `CHECK_INTERVAL` | 1000ms |
 | 托盘图标尺寸 | `main.js` → `TRAY_ICON_SIZE`（裁透明边后缩放） | 64px |
-| 托盘菜单 / 右键菜单 | `main.js` → `createTray()` / `registerIpc()` 内 Menu 模板 | — |
+| 托盘菜单 / 右键菜单 | `main.js` → `buildAppMenu()`（托盘与右键共用） | — |
 | 托盘提示文字 | `config.json` → `tray.tooltip` | 史迪奇桌面宠物 |
-| 自动更新仓库 / 下载代理 | `config.json` → `update` 段（repoOwner / repoName / proxyUrl / exeName） | AKIhunter / electron_pet、http://127.0.0.1:7890 |
+| 自动更新仓库 / 下载代理 | `config.json` → `update` 段（repoOwner / repoName / proxyUrl） | AKIhunter / electron_pet、http://127.0.0.1:7890 |
 
 > ⚠ 注意：`config.json` 中的 `behaviors`、`cooldowns`、`interaction.dragThreshold` 目前为**参考值**（渲染层未读取），动作帧率/优先级/冷却/拖拽阈值的**实际生效位置是 `renderer/pet.js` 顶部的 `BEHAVIORS` / `COOLDOWN` / `INTERACTION`**。
 
@@ -81,7 +81,7 @@ npm start
 
 退出：托盘图标右键 → 退出。
 
-## 打包发布（便携 zip）
+## 打包发布（向导式安装包）
 
 ```powershell
 $env:COMSPEC="C:\Windows\System32\cmd.exe"    # 沙盒环境必需（npm 生命周期脚本需要）
@@ -91,14 +91,14 @@ $env:ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-bu
 npm run build
 ```
 
-产物：`dist/electron_pet-v<版本>-win-x64.exe`——**NSIS 一键安装包**（双击即装到 `%LOCALAPPDATA%\Programs\electron_pet`，自动建桌面/开始菜单快捷方式；更新时下载新安装包覆盖安装，安装目录记录在注册表）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
+产物：`dist/electron_pet-v<版本>-win-x64.exe`——**NSIS 向导式安装包**（安装时可**自定义安装目录**，默认 `%LOCALAPPDATA%\Programs\electron_pet`，自动建桌面/开始菜单快捷方式；**自带卸载器**并注册到「添加/删除程序」，卸载保留 `userdata` 崩溃日志/提醒）。更新时下载新安装包覆盖安装（复用注册表记录的安装目录）。应用图标由 `python tools/make_icon.py` 生成 `build/icon.ico`（取待机第 1 帧裁透明边方形化，electron-builder 自动拾取）。
 
 ## 自动更新
 
 控制面板底部版本栏点 **⟳ 检查更新** → 主进程请求 GitHub `releases/latest`（`api.github.com` 直连）→ 与本地版本逐段比较：
 
 - **无新版**：显示「已是最新（vX.Y.Z）」。
-- **有新版**：出现 **⬇ 下载并重启** → curl 下载 exe 安装包（**代理优先**：先走 `config.update.proxyUrl`（默认本机 Clash 7890），代理不可用秒退自动改直连；**慢速熔断**：连接被限速成 <10KB/s 假连接时 30s 中止换链路；500ms 轮询临时文件大小算百分比）→ 静默运行安装器（`/S` + detached 脱离应用进程树）→ 应用退出，NSIS 安装器自动覆盖安装到原目录并完成升级。
+- **有新版**：出现 **⬇ 下载并更新** → curl 下载 exe 安装包（**代理优先**：先走 `config.update.proxyUrl`（默认本机 Clash 7890），代理不可用秒退自动改直连；**慢速熔断**：连接被限速成 <10KB/s 假连接时 30s 中止换链路；500ms 轮询临时文件大小算百分比）→ 静默运行安装器（`/S` + detached 脱离应用进程树）→ 应用退出，NSIS 安装器自动覆盖安装到原目录并完成升级。
 
 限制：仅 NSIS 安装包形态支持；开发模式（npm start）只能检查不能安装。排障日志：`%TEMP%\electron_pet_update.log`。
 
@@ -119,13 +119,12 @@ stitch_pet_electron/
 │   ├── manual.html       # 培养手册（自包含静态页：动作触发条件速览）
 │   ├── shield.html/js    # 拖拽事件盾（全屏透明，转发窗口外松手；启动预创建复用）
 │   └── style.css
-├── reminder/             # 控制面板（html/js/css：提醒 + 培养手册/崩溃日志工具栏）
+├── reminder/             # 控制面板（html/js/css：提醒 + 开机自启动 + 培养手册/崩溃日志 + 版本栏）
 ├── assets/               # 处理后的透明帧，按动作分子目录
 │   ├── idle1/ idle2/ wave/ run/ drag/ review1/ review2/
 │   ├── meta.json         # 各动作帧数等元数据（渲染层按真实帧数播放）
 │   └── _preview.png      # 七宫格透明预览
-├── raw/                  # 原始素材解压目录
-├── userdata/             # userData（含 reminders.json 与 crash/ 崩溃日志，沙盒环境可写）
+├── userdata/             # userData（含 reminders.json、settings.json 与 crash/ 崩溃日志，沙盒环境可写）
 └── tools/
     ├── make_icon.py       # 应用图标生成（idle1 第 1 帧 → 多尺寸 icon.ico）
     ├── preprocess.py      # 素材预处理（去背景 + 固定变换归一化到 256×256 透明画布）

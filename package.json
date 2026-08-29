@@ -1,6 +1,6 @@
 {
   "name": "stitch-pet-electron",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "史迪奇桌面宠物（Electron 版）",
   "main": "main.js",
   "scripts": {
@@ -43,13 +43,12 @@
       "icon": "build/icon.ico"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "史迪奇桌宠",
-      "deleteAppDataOnUninstall": false
+      "shortcutName": "史迪奇桌宠"
     }
   }
 }
